@@ -7,11 +7,11 @@ Emergency Shutdown Module
 The ESM is a contract with the ability to call `end.cage()`, i.e. trigger an
 Emergency Shutdown (aka Global Settlement).
 
-MKR holders `join` their funds, which are then immediately burnt. When the ESM's
+META holders `join` their funds, which are then immediately burnt. When the ESM's
 internal `sum` balance is equal to or greater than the `min` threshold, the ESM
 can be `fire`d.
 
-It is meant to be used by an MKR minority to thwart two types of attack:
+It is meant to be used by an META minority to thwart two types of attack:
 
 * malicious governance
 * critical bug
