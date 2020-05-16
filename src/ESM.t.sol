@@ -5,122 +5,122 @@ import "ds-token/token.sol";
 
 import "./ESM.sol";
 
-contract EndMock {
-    uint256 public live;
+contract GlobalSettlementMock {
+    uint256 public contractEnabled;
 
-    constructor()   public { live = 1; }
-    function cage() public { live = 0; }
+    constructor() public { contractEnabled = 1; }
+    function shutdownSystem() public { contractEnabled = 0; }
 }
 
 contract TestUsr {
-    DSToken gem;
+    DSToken protocolToken;
 
-    constructor(DSToken gem_) public {
-        gem = gem_;
+    constructor(DSToken protocolToken_) public {
+        protocolToken = protocolToken_;
     }
-    function callFire(ESM esm) external {
-        esm.fire();
+    function callShutdown(ESM esm) external {
+        esm.shutdown();
     }
 
-    function callJoin(ESM esm, uint256 wad) external {
-        gem.approve(address(esm), uint256(-1));
+    function callBurnTokens(ESM esm, uint256 wad) external {
+        protocolToken.approve(address(esm), uint256(-1));
 
-        esm.join(wad);
+        esm.burnTokens(wad);
     }
 }
 
 contract ESMTest is DSTest {
     ESM     esm;
-    DSToken gem;
-    EndMock end;
-    uint256 min;
-    address pit;
+    DSToken protocolToken;
+    GlobalSettlementMock globalSettlement;
+    uint256 triggerThreshold;
+    address tokenBurner;
     TestUsr usr;
     TestUsr gov;
 
     function setUp() public {
-        gem = new DSToken("GOLD");
-        end = new EndMock();
-        usr = new TestUsr(gem);
-        gov = new TestUsr(gem);
-        pit = address(0x42);
+        protocolToken = new DSToken("GOLD");
+        globalSettlement = new GlobalSettlementMock();
+        usr = new TestUsr(protocolToken);
+        gov = new TestUsr(protocolToken);
+        tokenBurner = address(0x42);
     }
 
     function test_constructor() public {
         esm = makeWithCap(10);
 
-        assertEq(address(esm.gem()), address(gem));
-        assertEq(address(esm.end()), address(end));
-        assertEq(esm.min(), 10);
-        assertEq(esm.fired(), 0);
+        assertEq(address(esm.protocolToken()), address(protocolToken));
+        assertEq(address(esm.globalSettlement()), address(globalSettlement));
+        assertEq(esm.triggerThreshold(), 10);
+        assertEq(esm.settled(), 0);
     }
 
     function test_Sum_is_internal_balance() public {
         esm = makeWithCap(10);
-        gem.mint(address(esm), 10);
+        protocolToken.mint(address(esm), 10);
 
-        assertEq(esm.Sum(), 0);
+        assertEq(esm.totalAmountBurnt(), 0);
     }
 
-    function test_fire() public {
+    function test_shutdown() public {
         esm = makeWithCap(0);
-        gov.callFire(esm);
+        gov.callShutdown(esm);
 
-        assertEq(esm.fired(), 1);
-        assertEq(end.live(), 0);
+        assertEq(esm.settled(), 1);
+        assertEq(globalSettlement.contractEnabled(), 0);
     }
 
     function testFail_fire_twice() public {
         esm = makeWithCap(0);
-        gov.callFire(esm);
+        gov.callShutdown(esm);
 
-        gov.callFire(esm);
+        gov.callShutdown(esm);
     }
 
-    function testFail_join_after_fired() public {
+    function testFail_join_after_settled() public {
         esm = makeWithCap(0);
-        gov.callFire(esm);
-        gem.mint(address(usr), 10);
+        gov.callShutdown(esm);
+        protocolToken.mint(address(usr), 10);
 
-        usr.callJoin(esm, 10);
+        usr.callBurnTokens(esm, 10);
     }
 
-    function testFail_fire_min_not_met() public {
+    function testFail_shutdown_threshold_not_met() public {
         esm = makeWithCap(10);
-        assertTrue(esm.Sum() <= esm.min());
+        assertTrue(esm.totalAmountBurnt() <= esm.triggerThreshold());
 
-        gov.callFire(esm);
+        gov.callShutdown(esm);
     }
 
     // -- user actions --
-    function test_join() public {
-        gem.mint(address(usr), 10);
+    function test_burnTokens() public {
+        protocolToken.mint(address(usr), 10);
         esm = makeWithCap(10);
 
-        usr.callJoin(esm, 10);
+        usr.callBurnTokens(esm, 10);
 
-        assertEq(esm.Sum(), 10);
-        assertEq(gem.balanceOf(address(esm)), 0);
-        assertEq(gem.balanceOf(address(usr)), 0);
-        assertEq(gem.balanceOf(address(pit)), 10);
+        assertEq(esm.totalAmountBurnt(), 10);
+        assertEq(protocolToken.balanceOf(address(esm)), 0);
+        assertEq(protocolToken.balanceOf(address(usr)), 0);
+        assertEq(protocolToken.balanceOf(address(tokenBurner)), 10);
     }
 
-    function test_join_over_min() public {
-        gem.mint(address(usr), 20);
+    function test_join_over_threshold() public {
+        protocolToken.mint(address(usr), 20);
         esm = makeWithCap(10);
 
-        usr.callJoin(esm, 10);
-        usr.callJoin(esm, 10);
+        usr.callBurnTokens(esm, 10);
+        usr.callBurnTokens(esm, 10);
     }
 
     function testFail_join_insufficient_balance() public {
-        assertEq(gem.balanceOf(address(usr)), 0);
+        assertEq(protocolToken.balanceOf(address(usr)), 0);
 
-        usr.callJoin(esm, 10);
+        usr.callBurnTokens(esm, 10);
     }
 
     // -- internal test helpers --
-    function makeWithCap(uint256 min_) internal returns (ESM) {
-        return new ESM(address(gem), address(end), pit, min_);
+    function makeWithCap(uint256 threshold_) internal returns (ESM) {
+        return new ESM(address(protocolToken), address(globalSettlement), tokenBurner, threshold_);
     }
 }
