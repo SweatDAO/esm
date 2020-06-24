@@ -11,6 +11,30 @@ abstract contract GlobalSettlementLike {
 }
 
 contract ESM {
+    // --- Auth ---
+    mapping (address => uint) public authorizedAccounts;
+    /**
+     * @notice Add auth to an account
+     * @param account Account to add auth to
+     */
+    function addAuthorization(address account) external emitLog isAuthorized {
+        authorizedAccounts[account] = 1;
+    }
+    /**
+     * @notice Remove auth from an account
+     * @param account Account to remove auth from
+     */
+    function removeAuthorization(address account) external emitLog isAuthorized {
+        authorizedAccounts[account] = 0;
+    }
+    /**
+    * @notice Checks whether msg.sender can call an authed function
+    **/
+    modifier isAuthorized {
+        require(authorizedAccounts[msg.sender] == 1, "esm/account-not-authorized");
+        _;
+    }
+
     TokenLike public protocolToken;                 // collateral
     GlobalSettlementLike public globalSettlement;   // shutdown module
     address public tokenBurner;                     // burner
@@ -29,7 +53,7 @@ contract ESM {
         bytes             data
     ) anonymous;
 
-    modifier note {
+    modifier emitLog {
         _;
         assembly {
             // log an 'anonymous' event with a constant 6 words of calldata
@@ -54,6 +78,7 @@ contract ESM {
       address tokenBurner_,
       uint256 triggerThreshold_
     ) public {
+        authorizedAccounts[msg.sender] = 1;
         protocolToken = TokenLike(protocolToken_);
         globalSettlement = GlobalSettlementLike(globalSettlement_);
         tokenBurner = tokenBurner_;
@@ -66,14 +91,20 @@ contract ESM {
         require(z >= x);
     }
 
-    function shutdown() external note {
+    // --- Administration ---
+    function modifyParameters(bytes32 parameter, uint256 wad) external emitLog isAuthorized {
+        if (parameter == "triggerThreshold") triggerThreshold = wad;
+        else revert("esm/modify-unrecognized-param");
+    }
+
+    function shutdown() external emitLog {
         require(settled == 0,  "esm/already-settled");
         require(totalAmountBurnt >= triggerThreshold, "esm/threshold-not-reached");
         globalSettlement.shutdownSystem();
         settled = 1;
     }
 
-    function burnTokens(uint256 amountToBurn) external note {
+    function burnTokens(uint256 amountToBurn) external emitLog {
         require(settled == 0, "esm/already-settled");
 
         burntTokens[msg.sender] = addition(burntTokens[msg.sender], amountToBurn);

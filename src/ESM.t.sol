@@ -55,6 +55,13 @@ contract ESMTest is DSTest {
         assertEq(esm.settled(), 0);
     }
 
+    function test_set_threshold() public {
+        esm = makeWithCap(10);
+        assertEq(esm.triggerThreshold(), 10);
+        esm.modifyParameters(bytes32("triggerThreshold"), 15);
+        assertEq(esm.triggerThreshold(), 15);
+    }
+
     function test_Sum_is_internal_balance() public {
         esm = makeWithCap(10);
         protocolToken.mint(address(esm), 10);
