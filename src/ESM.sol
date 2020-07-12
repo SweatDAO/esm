@@ -15,6 +15,10 @@
 
 pragma solidity ^0.6.7;
 
+abstract contract ESMThresholdSetter {
+    function recomputeThreshold() virtual external;
+}
+
 abstract contract TokenLike {
     function totalSupply() virtual public view returns (uint256);
     function balanceOf(address) virtual public view returns (uint256);
@@ -53,12 +57,10 @@ contract ESM {
 
     TokenLike public protocolToken;                 // collateral
     GlobalSettlementLike public globalSettlement;   // shutdown module
+    ESMThresholdSetter public thresholdSetter;      // threshold setter
     address public tokenBurner;                     // burner
     uint256 public triggerThreshold;                // threshold
     uint256 public settled;
-
-    mapping(address => uint256) public burntTokens; // per-address balance
-    uint256 public totalAmountBurnt;                // total balance
 
     // --- Logs ---
     event LogNote(
@@ -92,11 +94,17 @@ contract ESM {
       address protocolToken_,
       address globalSettlement_,
       address tokenBurner_,
+      address thresholdSetter_,
       uint256 triggerThreshold_
     ) public {
+        require(both(triggerThreshold_ > 0, triggerThreshold_ < TokenLike(protocolToken_).totalSupply()), "esm/threshold-not-within-bounds");
+        if (thresholdSetter_ != address(0)) {
+          authorizedAccounts[thresholdSetter_] = 1;
+        }
         authorizedAccounts[msg.sender] = 1;
         protocolToken = TokenLike(protocolToken_);
         globalSettlement = GlobalSettlementLike(globalSettlement_);
+        thresholdSetter = ESMThresholdSetter(thresholdSetter_);
         tokenBurner = tokenBurner_;
         triggerThreshold = triggerThreshold_;
     }
@@ -120,20 +128,23 @@ contract ESM {
         }
         else revert("esm/modify-unrecognized-param");
     }
-
-    function shutdown() external emitLog {
-        require(settled == 0,  "esm/already-settled");
-        require(totalAmountBurnt >= triggerThreshold, "esm/threshold-not-reached");
-        globalSettlement.shutdownSystem();
-        settled = 1;
+    function modifyParameters(bytes32 parameter, address account) external emitLog isAuthorized {
+        require(settled == 0, "esm/already-settled");
+        if (parameter == "thresholdSetter") {
+          authorizedAccounts[address(thresholdSetter)] = 0;
+          authorizedAccounts[account] = 1;
+          thresholdSetter = ESMThresholdSetter(account);
+        }
+        else revert("esm/modify-unrecognized-param");
     }
 
-    function burnTokens(uint256 amountToBurn) external emitLog {
+    function shutdown() external emitLog {
         require(settled == 0, "esm/already-settled");
-
-        burntTokens[msg.sender] = addition(burntTokens[msg.sender], amountToBurn);
-        totalAmountBurnt = addition(totalAmountBurnt, amountToBurn);
-
-        require(protocolToken.transferFrom(msg.sender, tokenBurner, amountToBurn), "esm/transfer-failed");
+        settled = 1;
+        if (address(thresholdSetter) != address(0)) {
+          thresholdSetter.recomputeThreshold();
+        }
+        require(protocolToken.transferFrom(msg.sender, tokenBurner, triggerThreshold), "esm/transfer-failed");
+        globalSettlement.shutdownSystem();
     }
 }
