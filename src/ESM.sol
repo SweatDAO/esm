@@ -16,6 +16,7 @@
 pragma solidity ^0.6.7;
 
 abstract contract TokenLike {
+    function totalSupply() virtual public view returns (uint256);
     function balanceOf(address) virtual public view returns (uint256);
     function transfer(address, uint256) virtual public returns (bool);
     function transferFrom(address, address, uint256) virtual public returns (bool);
@@ -100,15 +101,23 @@ contract ESM {
         triggerThreshold = triggerThreshold_;
     }
 
-    // -- math --
+    // --- Math ---
     function addition(uint256 x, uint256 y) internal pure returns (uint256 z) {
         z = x + y;
         require(z >= x);
     }
 
+    // --- Utils ---
+    function both(bool x, bool y) internal pure returns (bool z) {
+        assembly{ z := and(x, y)}
+    }
+
     // --- Administration ---
     function modifyParameters(bytes32 parameter, uint256 wad) external emitLog isAuthorized {
-        if (parameter == "triggerThreshold") triggerThreshold = wad;
+        if (parameter == "triggerThreshold") {
+          require(both(wad > 0, wad < protocolToken.totalSupply()), "esm/threshold-not-within-bounds");
+          triggerThreshold = wad;
+        }
         else revert("esm/modify-unrecognized-param");
     }
 

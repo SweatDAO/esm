@@ -39,7 +39,8 @@ contract ESMTest is DSTest {
     TestUsr gov;
 
     function setUp() public {
-        protocolToken = new DSToken("GOLD");
+        protocolToken = new DSToken("PROT");
+        protocolToken.mint(1000000 ether);
         globalSettlement = new GlobalSettlementMock();
         usr = new TestUsr(protocolToken);
         gov = new TestUsr(protocolToken);
@@ -53,6 +54,16 @@ contract ESMTest is DSTest {
         assertEq(address(esm.globalSettlement()), address(globalSettlement));
         assertEq(esm.triggerThreshold(), 10);
         assertEq(esm.settled(), 0);
+    }
+
+    function testFail_set_low_threshold() public {
+        esm = makeWithCap(10);
+        esm.modifyParameters(bytes32("triggerThreshold"), 0);
+    }
+
+    function testFail_set_high_threshold() public {
+        esm = makeWithCap(10);
+        esm.modifyParameters(bytes32("triggerThreshold"), 1000001 ether);
     }
 
     function test_set_threshold() public {
