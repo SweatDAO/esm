@@ -7,7 +7,9 @@ Emergency Shutdown Module
 The ESM is a contract with the ability to call `globalSettlement.shutdownSystem()`, i.e. trigger an
 Emergency Shutdown (aka Global Settlement).
 
-Protocol token holders `burnTokens`. When the ESM's internal `burntTokens` balance is equal to or greater than the `triggerThreshold`, the ESM can be `shutdown`.
+Protocol token holders can `shutdown`. by burning an amount of tokens equal to or greater than the `triggerThreshold`. The process of burning tokens and triggering settlement must be done in one transaction.
+
+The ESM can have a `thresholdSetter` attached. The setter can modify the `triggerThreshold` and is generally meant to decrease the threshold as more and more protocol tokens are burned and increase it when the protocol prints tokens.
 
 It is meant to be used by a protocol token minority to thwart two types of attack:
 
@@ -24,6 +26,5 @@ If governance wants to disarm the ESM, it can only do so by removing its authori
 
 * `shutdown` can be called by anyone
 * `shutdown` can be called only once
-* `shutdown` requires `burntTokens` to be >= `triggerThreshold`
-* `burnTokens` can only be called before `shutdown`
-* tokens are burnt immediately upon `burnTokens`
+* `shutdown` requires all `triggerThreshold` tokens to be burned at once
+* `thresholdSetter` is allowed to change `triggerThreshold`
