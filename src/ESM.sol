@@ -16,7 +16,7 @@
 pragma solidity ^0.6.7;
 
 abstract contract ESMThresholdSetter {
-    function recomputeThreshold() virtual external;
+    function recomputeThreshold() virtual public;
 }
 
 abstract contract TokenLike {
@@ -121,7 +121,8 @@ contract ESM {
     }
 
     // --- Administration ---
-    function modifyParameters(bytes32 parameter, uint256 wad) external emitLog isAuthorized {
+    function modifyParameters(bytes32 parameter, uint256 wad) external emitLog {
+        require(either(address(thresholdSetter) == msg.sender, authorizedAccounts[msg.sender] == 1), "esm/account-not-authorized");
         if (parameter == "triggerThreshold") {
           require(both(wad > 0, wad < protocolToken.totalSupply()), "esm/threshold-not-within-bounds");
           triggerThreshold = wad;
@@ -131,8 +132,6 @@ contract ESM {
     function modifyParameters(bytes32 parameter, address account) external emitLog isAuthorized {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
-          authorizedAccounts[address(thresholdSetter)] = 0;
-          authorizedAccounts[account] = 1;
           thresholdSetter = ESMThresholdSetter(account);
         }
         else revert("esm/modify-unrecognized-param");
