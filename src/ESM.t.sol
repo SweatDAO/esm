@@ -125,6 +125,11 @@ contract ESMTest is DSTest {
         gov.callShutdown(esm, 1);
     }
 
+    function testFail_shutdown_with_less_than_threshold() public {
+        esm = makeWithCapWithoutThresholdSetter(2);
+        gov.callShutdown(esm, 1);
+    }
+
     // -- internal test helpers --
     function makeWithCapWithoutThresholdSetter(uint256 threshold_) internal returns (ESM) {
         return new ESM(address(protocolToken), address(globalSettlement), tokenBurner, address(0), threshold_);

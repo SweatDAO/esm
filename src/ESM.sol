@@ -39,6 +39,7 @@ contract ESM {
      */
     function addAuthorization(address account) external emitLog isAuthorized {
         authorizedAccounts[account] = 1;
+        emit AddAuthorization(account);
     }
     /**
      * @notice Remove auth from an account
@@ -46,6 +47,7 @@ contract ESM {
      */
     function removeAuthorization(address account) external emitLog isAuthorized {
         authorizedAccounts[account] = 0;
+        emit RemoveAuthorization(account);
     }
     /**
     * @notice Checks whether msg.sender can call an authed function
@@ -62,15 +64,14 @@ contract ESM {
     uint256 public triggerThreshold;                // threshold
     uint256 public settled;
 
-    // --- Logs ---
-    event LogNote(
-        bytes4   indexed  sig,
-        address  indexed  usr,
-        bytes32  indexed  arg1,
-        bytes32  indexed  arg2,
-        bytes             data
-    ) anonymous;
+    // --- Events ---
+    event AddAuthorization(address account);
+    event RemoveAuthorization(address account);
+    event ModifyParameters(bytes32 parameter, uint256 wad);
+    event ModifyParameters(bytes32 parameter, address account);
+    event Shutdown();
 
+    // --- Modifiers ---
     modifier emitLog {
         _;
         assembly {
@@ -131,6 +132,7 @@ contract ESM {
           triggerThreshold = wad;
         }
         else revert("esm/modify-unrecognized-param");
+        emit ModifyParameters(parameter, wad);
     }
     function modifyParameters(bytes32 parameter, address account) external emitLog isAuthorized {
         require(settled == 0, "esm/already-settled");
@@ -138,6 +140,7 @@ contract ESM {
           thresholdSetter = ESMThresholdSetter(account);
         }
         else revert("esm/modify-unrecognized-param");
+        emit ModifyParameters(parameter, account);
     }
 
     function shutdown() external emitLog {
@@ -147,6 +150,7 @@ contract ESM {
           thresholdSetter.recomputeThreshold();
         }
         require(protocolToken.transferFrom(msg.sender, tokenBurner, triggerThreshold), "esm/transfer-failed");
+        emit Shutdown();
         globalSettlement.shutdownSystem();
     }
 }
