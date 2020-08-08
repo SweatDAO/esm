@@ -70,6 +70,7 @@ contract ESM {
     event ModifyParameters(bytes32 parameter, uint256 wad);
     event ModifyParameters(bytes32 parameter, address account);
     event Shutdown();
+    event FailRecomputeThreshold(bytes revertReason);
 
     // --- Modifiers ---
     modifier emitLog {
@@ -138,17 +139,25 @@ contract ESM {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
           thresholdSetter = ESMThresholdSetter(account);
+          // Make sure the update works
+          thresholdSetter.recomputeThreshold();
         }
         else revert("esm/modify-unrecognized-param");
         emit ModifyParameters(parameter, account);
     }
 
+    function recomputeThreshold() internal {
+        if (address(thresholdSetter) != address(0)) {
+          try thresholdSetter.recomputeThreshold() {}
+          catch(bytes memory revertReason) {
+            emit FailRecomputeThreshold(revertReason);
+          }
+        }
+    }
     function shutdown() external emitLog {
         require(settled == 0, "esm/already-settled");
         settled = 1;
-        if (address(thresholdSetter) != address(0)) {
-          thresholdSetter.recomputeThreshold();
-        }
+        recomputeThreshold();
         require(protocolToken.transferFrom(msg.sender, tokenBurner, triggerThreshold), "esm/transfer-failed");
         emit Shutdown();
         globalSettlement.shutdownSystem();
