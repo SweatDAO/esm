@@ -109,6 +109,9 @@ contract ESM {
         thresholdSetter = ESMThresholdSetter(thresholdSetter_);
         tokenBurner = tokenBurner_;
         triggerThreshold = triggerThreshold_;
+        emit AddAuthorization(msg.sender);
+        emit ModifyParameters(bytes32("triggerThreshold"), triggerThreshold_);
+        emit ModifyParameters(bytes32("thresholdSetter"), thresholdSetter_);
     }
 
     // --- Math ---
