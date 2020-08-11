@@ -37,7 +37,7 @@ contract ESM {
      * @notice Add auth to an account
      * @param account Account to add auth to
      */
-    function addAuthorization(address account) external emitLog isAuthorized {
+    function addAuthorization(address account) external isAuthorized {
         authorizedAccounts[account] = 1;
         emit AddAuthorization(account);
     }
@@ -45,7 +45,7 @@ contract ESM {
      * @notice Remove auth from an account
      * @param account Account to remove auth from
      */
-    function removeAuthorization(address account) external emitLog isAuthorized {
+    function removeAuthorization(address account) external isAuthorized {
         authorizedAccounts[account] = 0;
         emit RemoveAuthorization(account);
     }
@@ -73,7 +73,7 @@ contract ESM {
     event FailRecomputeThreshold(bytes revertReason);
 
     // --- Modifiers ---
-    modifier emitLog {
+    modifier {
         _;
         assembly {
             // log an 'anonymous' event with a constant 6 words of calldata
@@ -129,7 +129,7 @@ contract ESM {
     }
 
     // --- Administration ---
-    function modifyParameters(bytes32 parameter, uint256 wad) external emitLog {
+    function modifyParameters(bytes32 parameter, uint256 wad) external {
         require(either(address(thresholdSetter) == msg.sender, authorizedAccounts[msg.sender] == 1), "esm/account-not-authorized");
         if (parameter == "triggerThreshold") {
           require(both(wad > 0, wad < protocolToken.totalSupply()), "esm/threshold-not-within-bounds");
@@ -138,7 +138,7 @@ contract ESM {
         else revert("esm/modify-unrecognized-param");
         emit ModifyParameters(parameter, wad);
     }
-    function modifyParameters(bytes32 parameter, address account) external emitLog isAuthorized {
+    function modifyParameters(bytes32 parameter, address account) external isAuthorized {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
           thresholdSetter = ESMThresholdSetter(account);
@@ -157,7 +157,7 @@ contract ESM {
           }
         }
     }
-    function shutdown() external emitLog {
+    function shutdown() external {
         require(settled == 0, "esm/already-settled");
         settled = 1;
         recomputeThreshold();
