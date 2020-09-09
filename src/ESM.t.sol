@@ -94,6 +94,21 @@ contract ESMTest is DSTest {
         esm = makeWithCapWithoutThresholdSetter(1000001 ether);
     }
 
+    function test_modify_parameters_threshold_setter() public {
+        thresholdSetter = new ESMThresholdSetter();
+        esm = makeWithCapWithThresholdSetter(address(thresholdSetter), 10);
+
+        ESMThresholdSetter newSetter = new ESMThresholdSetter();
+        newSetter.modifyParameters("esm", address(esm));
+
+        esm.modifyParameters("thresholdSetter", address(newSetter));
+
+        assertEq(esm.authorizedAccounts(address(thresholdSetter)), 0);
+        assertEq(esm.authorizedAccounts(address(newSetter)), 1);
+
+        assertTrue(address(esm.thresholdSetter()) == address(newSetter));
+    }
+
     function test_set_threshold() public {
         esm = makeWithCapWithoutThresholdSetter(10);
         assertEq(esm.triggerThreshold(), 10);

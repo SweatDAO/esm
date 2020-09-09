@@ -121,7 +121,9 @@ contract ESM {
     function modifyParameters(bytes32 parameter, address account) external isAuthorized {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
+          authorizedAccounts[address(thresholdSetter)] = 0;
           thresholdSetter = ESMThresholdSetter(account);
+          authorizedAccounts[address(thresholdSetter)] = 1;
           // Make sure the update works
           thresholdSetter.recomputeThreshold();
         }
