@@ -37,7 +37,7 @@ contract ESM {
      * @notice Add auth to an account
      * @param account Account to add auth to
      */
-    function addAuthorization(address account) external isAuthorized {
+    function addAuthorization(address account) public isAuthorized {
         authorizedAccounts[account] = 1;
         emit AddAuthorization(account);
     }
@@ -45,7 +45,7 @@ contract ESM {
      * @notice Remove auth from an account
      * @param account Account to remove auth from
      */
-    function removeAuthorization(address account) external isAuthorized {
+    function removeAuthorization(address account) public isAuthorized {
         authorizedAccounts[account] = 0;
         emit RemoveAuthorization(account);
     }
@@ -110,7 +110,7 @@ contract ESM {
 
     // --- Administration ---
     function modifyParameters(bytes32 parameter, uint256 wad) external {
-        require(either(address(thresholdSetter) == msg.sender, authorizedAccounts[msg.sender] == 1), "esm/account-not-authorized");
+        require(authorizedAccounts[msg.sender] == 1, "esm/account-not-authorized");
         if (parameter == "triggerThreshold") {
           require(both(wad > 0, wad < protocolToken.totalSupply()), "esm/threshold-not-within-bounds");
           triggerThreshold = wad;
@@ -121,9 +121,9 @@ contract ESM {
     function modifyParameters(bytes32 parameter, address account) external isAuthorized {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
-          authorizedAccounts[address(thresholdSetter)] = 0;
+          removeAuthorization(address(thresholdSetter));
           thresholdSetter = ESMThresholdSetter(account);
-          authorizedAccounts[address(thresholdSetter)] = 1;
+          addAuthorization(address(thresholdSetter));
           // Make sure the update works
           thresholdSetter.recomputeThreshold();
         }
