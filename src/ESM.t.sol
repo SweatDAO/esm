@@ -104,7 +104,7 @@ contract ESMTest is DSTest {
         esm.modifyParameters("thresholdSetter", address(newSetter));
 
         assertEq(esm.authorizedAccounts(address(thresholdSetter)), 0);
-        assertEq(esm.authorizedAccounts(address(newSetter)), 1);
+        assertEq(esm.authorizedAccounts(address(newSetter)), 0);
 
         assertTrue(address(esm.thresholdSetter()) == address(newSetter));
     }

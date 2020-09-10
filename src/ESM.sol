@@ -80,9 +80,6 @@ contract ESM {
       uint256 triggerThreshold_
     ) public {
         require(both(triggerThreshold_ > 0, triggerThreshold_ < TokenLike(protocolToken_).totalSupply()), "esm/threshold-not-within-bounds");
-        if (thresholdSetter_ != address(0)) {
-          authorizedAccounts[thresholdSetter_] = 1;
-        }
         authorizedAccounts[msg.sender] = 1;
         protocolToken = TokenLike(protocolToken_);
         globalSettlement = GlobalSettlementLike(globalSettlement_);
@@ -110,7 +107,7 @@ contract ESM {
 
     // --- Administration ---
     function modifyParameters(bytes32 parameter, uint256 wad) external {
-        require(authorizedAccounts[msg.sender] == 1, "esm/account-not-authorized");
+        require(either(address(thresholdSetter) == msg.sender, authorizedAccounts[msg.sender] == 1), "esm/account-not-authorized");
         if (parameter == "triggerThreshold") {
           require(both(wad > 0, wad < protocolToken.totalSupply()), "esm/threshold-not-within-bounds");
           triggerThreshold = wad;
@@ -121,9 +118,7 @@ contract ESM {
     function modifyParameters(bytes32 parameter, address account) external isAuthorized {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
-          removeAuthorization(address(thresholdSetter));
           thresholdSetter = ESMThresholdSetter(account);
-          addAuthorization(address(thresholdSetter));
           // Make sure the update works
           thresholdSetter.recomputeThreshold();
         }
