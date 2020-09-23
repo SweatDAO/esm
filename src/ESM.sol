@@ -107,6 +107,7 @@ contract ESM {
 
     // --- Administration ---
     function modifyParameters(bytes32 parameter, uint256 wad) external {
+        require(settled == 0, "esm/already-settled");
         require(either(address(thresholdSetter) == msg.sender, authorizedAccounts[msg.sender] == 1), "esm/account-not-authorized");
         if (parameter == "triggerThreshold") {
           require(both(wad > 0, wad < protocolToken.totalSupply()), "esm/threshold-not-within-bounds");
@@ -136,8 +137,8 @@ contract ESM {
     }
     function shutdown() external {
         require(settled == 0, "esm/already-settled");
-        settled = 1;
         recomputeThreshold();
+        settled = 1;
         require(protocolToken.transferFrom(msg.sender, tokenBurner, triggerThreshold), "esm/transfer-failed");
         emit Shutdown();
         globalSettlement.shutdownSystem();
