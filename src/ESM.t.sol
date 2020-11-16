@@ -47,7 +47,7 @@ contract ESMTest is DSTest {
     TestUsr gov;
 
     function setUp() public {
-        protocolToken = new DSToken("PROT");
+        protocolToken = new DSToken("PROT", "PROT");
         protocolToken.mint(1000000 ether);
         globalSettlement = new GlobalSettlementMock();
         gov = new TestUsr(protocolToken);
