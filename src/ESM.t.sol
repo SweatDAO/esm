@@ -1,7 +1,7 @@
 pragma solidity ^0.6.7;
 
 import "ds-test/test.sol";
-import "ds-token/token.sol";
+import "ds-token/delegate.sol";
 
 import { ESM } from "./ESM.sol";
 
@@ -25,9 +25,9 @@ contract ESMThresholdSetter {
 }
 
 contract TestUsr {
-    DSToken protocolToken;
+    DSDelegateToken protocolToken;
 
-    constructor(DSToken protocolToken_) public {
+    constructor(DSDelegateToken protocolToken_) public {
         protocolToken = protocolToken_;
     }
     function callShutdown(ESM esm, uint approval) external {
@@ -38,7 +38,7 @@ contract TestUsr {
 
 contract ESMTest is DSTest {
     ESM     esm;
-    DSToken protocolToken;
+    DSDelegateToken protocolToken;
     GlobalSettlementMock globalSettlement;
     ESMThresholdSetter thresholdSetter;
     uint256 triggerThreshold;
@@ -47,7 +47,7 @@ contract ESMTest is DSTest {
     TestUsr gov;
 
     function setUp() public {
-        protocolToken = new DSToken("PROT", "PROT");
+        protocolToken = new DSDelegateToken("PROT", "PROT");
         protocolToken.mint(1000000 ether);
         globalSettlement = new GlobalSettlementMock();
         gov = new TestUsr(protocolToken);
@@ -92,6 +92,24 @@ contract ESMTest is DSTest {
 
     function testFail_construct_threshold_above_supply() public {
         esm = makeWithCapWithoutThresholdSetter(1000001 ether);
+    }
+
+    function testFail_use_delegate_amount_to_shut_down() public {
+        esm = makeWithCapWithoutThresholdSetter(10);
+        esm.modifyParameters(bytes32("triggerThreshold"), 2 ether);
+        assertEq(protocolToken.balanceOf(address(gov)), 1 ether);
+        assertEq(protocolToken.balanceOf(address(this)), 999999 ether);
+
+        assertEq(address(esm.protocolToken()), address(protocolToken));
+        assertEq(address(esm.globalSettlement()), address(globalSettlement));
+        assertEq(esm.triggerThreshold(), 2 ether);
+
+        protocolToken.delegate(address(gov));
+        (uint blockNumber, uint votes) = protocolToken.checkpoints(address(gov), 0);
+        assertEq(blockNumber, block.number);
+        assertEq(votes, 999999 ether);
+
+        gov.callShutdown(esm, protocolToken.balanceOf(address(gov)));
     }
 
     function test_modify_parameters_threshold_setter() public {
