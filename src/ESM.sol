@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.6.7;
+pragma solidity 0.6.7;
 
 abstract contract ESMThresholdSetter {
     function recomputeThreshold() virtual public;
@@ -57,12 +57,13 @@ contract ESM {
         _;
     }
 
-    TokenLike public protocolToken;                 // collateral
+    TokenLike            public protocolToken;      // collateral
     GlobalSettlementLike public globalSettlement;   // shutdown module
-    ESMThresholdSetter public thresholdSetter;      // threshold setter
-    address public tokenBurner;                     // burner
-    uint256 public triggerThreshold;                // threshold
-    uint256 public settled;
+    ESMThresholdSetter   public thresholdSetter;    // threshold setter
+
+    address              public tokenBurner;        // burner
+    uint256              public triggerThreshold;   // threshold
+    uint256              public settled;            // flag that indicates whether the shutdown module has been called/triggered
 
     // --- Events ---
     event AddAuthorization(address account);
@@ -80,12 +81,15 @@ contract ESM {
       uint256 triggerThreshold_
     ) public {
         require(both(triggerThreshold_ > 0, triggerThreshold_ < TokenLike(protocolToken_).totalSupply()), "esm/threshold-not-within-bounds");
+
         authorizedAccounts[msg.sender] = 1;
-        protocolToken = TokenLike(protocolToken_);
+
+        protocolToken    = TokenLike(protocolToken_);
         globalSettlement = GlobalSettlementLike(globalSettlement_);
-        thresholdSetter = ESMThresholdSetter(thresholdSetter_);
-        tokenBurner = tokenBurner_;
+        thresholdSetter  = ESMThresholdSetter(thresholdSetter_);
+        tokenBurner      = tokenBurner_;
         triggerThreshold = triggerThreshold_;
+
         emit AddAuthorization(msg.sender);
         emit ModifyParameters(bytes32("triggerThreshold"), triggerThreshold_);
         emit ModifyParameters(bytes32("thresholdSetter"), thresholdSetter_);
@@ -106,6 +110,11 @@ contract ESM {
     }
 
     // --- Administration ---
+    /*
+    * @notice Modify a uint256 parameter
+    * @param parameter The name of the parameter to change the value for
+    * @param wad The new parameter value
+    */
     function modifyParameters(bytes32 parameter, uint256 wad) external {
         require(settled == 0, "esm/already-settled");
         require(either(address(thresholdSetter) == msg.sender, authorizedAccounts[msg.sender] == 1), "esm/account-not-authorized");
@@ -116,6 +125,11 @@ contract ESM {
         else revert("esm/modify-unrecognized-param");
         emit ModifyParameters(parameter, wad);
     }
+    /*
+    * @notice Modify an address parameter
+    * @param parameter The parameter name whose value will be changed
+    * @param account The new address for the parameter
+    */
     function modifyParameters(bytes32 parameter, address account) external isAuthorized {
         require(settled == 0, "esm/already-settled");
         if (parameter == "thresholdSetter") {
@@ -127,6 +141,9 @@ contract ESM {
         emit ModifyParameters(parameter, account);
     }
 
+    /*
+    * @notify Recompute the triggerThreshold using the thresholdSetter
+    */
     function recomputeThreshold() internal {
         if (address(thresholdSetter) != address(0)) {
           try thresholdSetter.recomputeThreshold() {}
@@ -135,6 +152,10 @@ contract ESM {
           }
         }
     }
+    /*
+    * @notice Sacrifice tokens and trigger settlement
+    * @dev This can only be done once
+    */
     function shutdown() external {
         require(settled == 0, "esm/already-settled");
         recomputeThreshold();
